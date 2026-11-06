@@ -3,3 +3,10 @@
 __pycache__/
 card0.json
 main.py
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+*.iml
+*.apk
