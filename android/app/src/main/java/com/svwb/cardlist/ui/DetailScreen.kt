@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -20,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +44,8 @@ import com.svwb.cardlist.data.Card
 import com.svwb.cardlist.data.CardData
 import com.svwb.cardlist.data.Lang
 
+private const val TOKEN_SET_ID = 90000
+
 @Composable
 fun DetailScreen(
     cardId: Long,
@@ -52,7 +56,13 @@ fun DetailScreen(
 ) {
     val card = data.byId[cardId] ?: return
     var showEvo by remember(cardId) { mutableStateOf(false) }
+    // -1 表示本体，其余为 styles 下标
+    var styleIndex by remember(cardId) { mutableStateOf(-1) }
     val evo = card.evo?.takeIf { it.imageHash.isNotEmpty() }
+    val style = card.styles.getOrNull(styleIndex)
+    val baseHash = style?.imageHash ?: card.imageHash
+    val evoHash = if (style != null) style.evoImageHash.ifEmpty { null } else evo?.imageHash
+    val hasEvoImage = evoHash != null
     val related = card.related.mapNotNull { data.byId[it] }
 
     Scaffold(
@@ -78,17 +88,38 @@ fun DetailScreen(
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CardImage(
                     card = card,
-                    hash = if (showEvo && evo != null) evo.imageHash else card.imageHash,
+                    hash = if (showEvo && evoHash != null) evoHash else baseHash,
                     lang = data.lang,
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
                         .aspectRatio(530f / 687f),
                 )
             }
-            if (evo != null) {
+            if (hasEvoImage) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     OutlinedButton(onClick = { showEvo = !showEvo }) {
                         Text(if (showEvo) strings.showBase else strings.showEvo)
+                    }
+                }
+            }
+            if (card.styles.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(strings.detailStyle, style = MaterialTheme.typography.titleSmall)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = styleIndex == -1,
+                                onClick = { styleIndex = -1; showEvo = false },
+                                label = { Text(strings.styleOriginal) },
+                            )
+                        }
+                        itemsIndexed(card.styles) { i, s ->
+                            FilterChip(
+                                selected = styleIndex == i,
+                                onClick = { styleIndex = i; showEvo = false },
+                                label = { Text(s.name.ifBlank { strings.styleN(i + 1) }) },
+                            )
+                        }
                     }
                 }
             }
@@ -111,7 +142,9 @@ fun DetailScreen(
                     strings.className(card.clazz) + " / " + strings.typeName(card.typeGroup) +
                         " / " + strings.rarityName(card.rarity),
                 )
-                InfoRow(strings.detailSet, data.setNames[card.setId] ?: card.setId.toString())
+                if (card.setId != TOKEN_SET_ID) {
+                    InfoRow(strings.detailSet, data.setNames[card.setId] ?: card.setId.toString())
+                }
                 if (card.tribes.isNotEmpty()) {
                     InfoRow(strings.detailTribe, card.tribes.joinToString("、") { data.tribeNames[it] ?: "?" })
                 }
@@ -141,18 +174,25 @@ fun DetailScreen(
                     }
                 }
             }
-            if (card.flavourText.isNotBlank()) {
+            val flavour = when {
+                style == null -> card.flavourText
+                showEvo && style.evoFlavourText.isNotBlank() -> style.evoFlavourText
+                style.flavourText.isNotBlank() -> style.flavourText
+                else -> card.flavourText
+            }
+            if (flavour.isNotBlank()) {
                 Block(strings.detailFlavour) {
                     Text(
-                        card.flavourText,
+                        flavour,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            if (card.cv.isNotBlank() || card.illustrator.isNotBlank()) {
+            val cv = style?.cv?.takeIf { it.isNotBlank() } ?: card.cv
+            if (cv.isNotBlank() || card.illustrator.isNotBlank()) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    if (card.cv.isNotBlank()) InfoRow(strings.detailCv, card.cv)
+                    if (cv.isNotBlank()) InfoRow(strings.detailCv, cv)
                     if (card.illustrator.isNotBlank()) InfoRow(strings.detailIllustrator, card.illustrator)
                 }
             }

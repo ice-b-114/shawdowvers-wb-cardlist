@@ -11,6 +11,8 @@ import com.svwb.cardlist.data.CardData
 import com.svwb.cardlist.data.CardRepository
 import com.svwb.cardlist.data.Lang
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 
 enum class FormatFilter { ALL, ROTATION, UNLIMITED_ONLY }
@@ -30,7 +32,7 @@ data class Filters(
     fun matches(c: Card): Boolean {
         if (sets.isNotEmpty() && c.setId !in sets) return false
         if (classes.isNotEmpty() && c.clazz !in classes) return false
-        if (costs.isNotEmpty() && costs.none { if (it >= 10) c.cost >= 10 else c.cost == it }) return false
+        if (costs.isNotEmpty() && costs.none { if (it >= MAX_COST_CHIP) c.cost >= MAX_COST_CHIP else c.cost == it }) return false
         if (types.isNotEmpty() && c.typeGroup !in types) return false
         if (rarities.isNotEmpty() && c.rarity !in rarities) return false
         return when (format) {
@@ -39,6 +41,11 @@ data class Filters(
             FormatFilter.UNLIMITED_ONLY -> !c.inRotation
         }
     }
+
+    companion object {
+        /** 费用筛选的最大档位，7 表示 7 及以上 */
+        const val MAX_COST_CHIP = 7
+    }
 }
 
 class CardViewModel(app: Application) : AndroidViewModel(app) {
@@ -46,9 +53,10 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = CardRepository(app)
     private val prefs = app.getSharedPreferences("settings", 0)
 
+    /** 两种语言的卡表同时驻留内存，切换语言只切换引用，不联网 */
+    private var store by mutableStateOf<Map<Lang, CardData>>(emptyMap())
+
     var lang by mutableStateOf(Lang.from(prefs.getString("lang", null)))
-        private set
-    var data by mutableStateOf<CardData?>(null)
         private set
     var loading by mutableStateOf(true)
         private set
@@ -58,12 +66,13 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
     var detailStack by mutableStateOf<List<Long>>(emptyList())
         private set
 
+    val data: CardData? get() = store[lang]
     val strings: Strings get() = Strings(lang)
 
     private var job: Job? = null
 
     init {
-        load(lang)
+        loadAll()
     }
 
     fun visibleCards(): List<Card> {
@@ -78,27 +87,35 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
         if (target == lang) return
         lang = target
         prefs.edit().putString("lang", target.code).apply()
-        load(target)
     }
 
-    fun refresh() = load(lang)
+    /** 仅在应用启动和点击刷新按钮时调用 */
+    fun refresh() = loadAll()
 
-    private fun load(target: Lang) {
+    private fun loadAll() {
         job?.cancel()
         job = viewModelScope.launch {
-            val s = Strings(target)
-            if (data?.lang != target) {
-                loading = true
-                data = repo.loadLocal(target)
-                loading = data == null
+            if (data == null) loading = true
+            for (l in Lang.entries) {
+                if (store[l] == null) {
+                    repo.loadLocal(l)?.let { store = store + (l to it) }
+                }
             }
-            val result = repo.refresh(target)
-            if (target != lang) return@launch
-            if (result != null) {
-                data = result.data
-                message = s.updatedFrom(result.source)
-            } else if (data != null) {
-                message = s.offlineCache
+            if (data != null) loading = false
+
+            val results = Lang.entries.map { l -> async { l to repo.refresh(l) } }.awaitAll()
+            var source: String? = null
+            for ((l, r) in results) {
+                if (r != null) {
+                    store = store + (l to r.data)
+                    source = r.source
+                }
+            }
+            val s = strings
+            message = when {
+                source != null -> s.updatedFrom(source)
+                data != null -> s.offlineCache
+                else -> null
             }
             loading = false
         }

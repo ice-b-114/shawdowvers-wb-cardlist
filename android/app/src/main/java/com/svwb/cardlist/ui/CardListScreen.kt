@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -21,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Badge
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -129,13 +129,16 @@ fun CardListScreen(vm: CardViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         val active = vm.filters.activeCount
-                        FilledTonalButton(onClick = { showFilter = true }, enabled = data != null) {
-                            if (active > 0) {
-                                BadgedBox(badge = { Badge { Text(active.toString()) } }) {
-                                    Text(strings.filter)
-                                }
-                            } else {
+                        Box {
+                            FilledTonalButton(onClick = { showFilter = true }, enabled = data != null) {
                                 Text(strings.filter)
+                            }
+                            if (active > 0) {
+                                Badge(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = (-4).dp, y = 2.dp),
+                                ) { Text(active.toString()) }
                             }
                         }
                     }

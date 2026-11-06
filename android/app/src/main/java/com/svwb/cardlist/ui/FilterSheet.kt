@@ -79,7 +79,7 @@ fun FilterSheet(
                     }
                 }
                 Section(strings.secCost) {
-                    (0..10).forEach { c ->
+                    (0..Filters.MAX_COST_CHIP).forEach { c ->
                         Chip(strings.costName(c), c in filters.costs) {
                             onChange(filters.copy(costs = filters.costs.toggle(c)))
                         }

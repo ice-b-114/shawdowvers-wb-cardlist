@@ -30,7 +30,7 @@ class Strings(val lang: Lang) {
 
     val formatAll = t("不限", "不限")
     val formatRotation = t("指定系列", "指定系列")
-    val formatUnlimited = t("仅无限制", "僅無限制")
+    val formatUnlimited = t("无限制", "無限制")
     val formatBoth = t("指定系列、无限制", "指定系列、無限制")
 
     fun className(c: Int) = if (lang == Lang.CHS) {
@@ -54,7 +54,7 @@ class Strings(val lang: Lang) {
         else -> "?"
     }
 
-    fun costName(c: Int) = if (c >= 10) "10+" else c.toString()
+    fun costName(c: Int) = if (c >= Filters.MAX_COST_CHIP) "${Filters.MAX_COST_CHIP}+" else c.toString()
 
     val detailCost = t("费用", "費用")
     val detailAtk = t("攻击力", "攻擊力")
@@ -71,5 +71,8 @@ class Strings(val lang: Lang) {
     val detailIllustrator = t("插画", "插畫")
     val tokenTag = t("衍生卡", "衍生卡")
     val showEvo = t("查看进化图", "查看進化圖")
+    val detailStyle = t("卡片风格", "卡片風格")
+    val styleOriginal = t("原版", "原版")
+    fun styleN(n: Int) = t("风格$n", "風格$n")
     val showBase = t("查看原图", "查看原圖")
 }

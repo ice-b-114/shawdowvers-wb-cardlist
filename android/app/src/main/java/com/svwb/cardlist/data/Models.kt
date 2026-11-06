@@ -23,6 +23,16 @@ data class SpecificEffect(
     val skillText: String,
 )
 
+/** 卡片风格：与本体共用卡面数值，仅卡图（及部分文案）不同 */
+data class CardStyle(
+    val name: String,
+    val imageHash: String,
+    val evoImageHash: String,
+    val flavourText: String,
+    val evoFlavourText: String,
+    val cv: String,
+)
+
 data class Card(
     val id: Long,
     val name: String,
@@ -42,6 +52,7 @@ data class Card(
     val isToken: Boolean,
     val inRotation: Boolean,
     val evo: Evo?,
+    val styles: List<CardStyle>,
     val related: List<Long>,
     val effects: List<SpecificEffect>,
 ) {
@@ -84,6 +95,25 @@ class CardData(
                     )
                 }
 
+                val stylesArr = entry.optJSONArray("style_card_list")
+                val styles = buildList {
+                    if (stylesArr != null) for (i in 0 until stylesArr.length()) {
+                        val s = stylesArr.getJSONObject(i)
+                        val hash = s.optString("hash")
+                        if (hash.isEmpty()) continue
+                        add(
+                            CardStyle(
+                                name = s.optString("name"),
+                                imageHash = hash,
+                                evoImageHash = s.optString("evo_hash"),
+                                flavourText = s.optString("flavour_text"),
+                                evoFlavourText = s.optString("evo_flavour_text"),
+                                cv = s.optString("cv"),
+                            )
+                        )
+                    }
+                }
+
                 val rel = relatedObj?.optJSONObject(key)
                 val related = rel?.optJSONArray("related_card_ids").toLongList().filter { it != id }
                 val effects = rel?.optJSONArray("specific_effect_card_ids").toLongList().mapNotNull { eid ->
@@ -116,6 +146,7 @@ class CardData(
                     isToken = c.optBoolean("is_token"),
                     inRotation = c.optBoolean("is_include_rotation"),
                     evo = evo,
+                    styles = styles,
                     related = related,
                     effects = effects,
                 )
